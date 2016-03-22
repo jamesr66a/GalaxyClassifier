@@ -8,7 +8,7 @@ types = ['spiral', 'lenticular', 'irregular', 'elliptical']
 
 jpeg_re = re.compile('.*\.jpg')
 
-size = 300, 300
+size = 64, 64
 
 for t in types:
   for dirname, dirnames, filenames in os.walk(os.path.join('./images', t)):
