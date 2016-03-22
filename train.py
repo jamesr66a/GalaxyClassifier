@@ -28,7 +28,6 @@ def read_example(value):
   return whitened_image, label
 
 with tf.Graph().as_default():
-  #sess = tf.InteractiveSession()
   # Start populating the filename queue.
 
   filenames = []
@@ -48,7 +47,7 @@ with tf.Graph().as_default():
   min_queue_examples = int(num_examples_per_epoch *
                            min_fraction_of_examples_in_queue)
   images_batch, label_batch =\
-    tf.train.shuffle_batch_join([read_example(value) for _ in range(100)],
+    tf.train.shuffle_batch_join([read_example(value) for _ in range(9)],
                                  batch_size=batch_size,
                                  capacity=min_queue_examples + 3*batch_size,
                                  min_after_dequeue=min_queue_examples)
@@ -70,6 +69,10 @@ with tf.Graph().as_default():
 
   threads = tf.train.start_queue_runners(sess=sess)
 
+  summary_writer = tf.train.SummaryWriter('./train',
+                                          graph_def=sess.graph_def)
+
+
   print 'starting training'
 
   for step in xrange(100000):
@@ -90,3 +93,11 @@ with tf.Graph().as_default():
                     'sec/batch)')
       print (format_str % (datetime.now(), step, loss_value,
                            examples_per_sec, sec_per_batch))
+
+    if step % 100 == 0:
+      summary_str = sess.run(summary_op)
+      summary_writer.add_summary(summary_str, step)
+
+    if step % 1000 == 0 or (step + 1) == 100000:
+      checkpoint_path = os.path.join('./train', 'model.ckpt')
+      saver.save(sess, checkpoint_path, global_step=step)
