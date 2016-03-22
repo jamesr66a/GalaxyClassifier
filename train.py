@@ -15,11 +15,12 @@ size = 300, 300
 filenames = {"spiral": [], "lenticular": [], "irregular": [], "elliptical": []}
 
 for t in types:
-  for dirname, dirnames, filename in os.walk(os.path.join('./images', t)):
+  for dirname, dirnames, filename in os.walk(os.path.join('./images', t, 'scaled')):
     for name in filter(jpeg_re.match, filename):
-      filenames[t].append(os.path.join('./images', t, name))
+      filenames[t].append(os.path.join('./images', t, 'scaled', name))
 
 images = {}
+examples = {}
 
 indices = {"spiral": 0, "lenticular": 1, "irregular": 2, "elliptical": 3}
 
@@ -34,3 +35,5 @@ for t in types:
 
   # Normalize pixels
   images[t] = tf.image.per_image_whitening(images[t])
+
+  # Add labels
