@@ -1,58 +1,47 @@
-from PIL import *
-from PIL import Image
-
-import re
 import os
 
 import tensorflow as tf
-import numpy as np
 
 types = ['spiral', 'lenticular', 'irregular', 'elliptical']
 
-jpeg_re = re.compile('.*\.jpg')
 
-size = 300, 300
+def read_example_map(example_map, type):
+  record_defaults=[tf.constant([], dtype=tf.string), tf.constant([], dtype=tf.int32)]
+  fn, label = tf.decode_csv(example_map, record_defaults, " ")
+  file_contents = tf.read_file(fn)
+  example = tf.image.decode_jpeg(file_contents, channels=3)
+  return example, label
 
-filenames = {"spiral": [], "lenticular": [], "irregular": [], "elliptical": []}
+def read_examples():
+  map_filenames = []
+  type_names = []
 
-for t in types:
-  for dirname, dirnames, filename in os.walk(os.path.join('./images', t, 'scaled')):
-    for name in filter(jpeg_re.match, filename):
-      filenames[t].append(os.path.join('./images', t, 'scaled', name))
+  for t in types:
+    map_filenames.append(os.path.join('./images', t, 'scaled', 'example_map'))
+    type_names.append(t)
 
-images = {}
-examples = {}
+  filename_queue = tf.train.string_input_producer(map_filenames)
+  type_queue = tf.train.string_input_producer(type_names)
 
-indices = {"spiral": 0, "lenticular": 1, "irregular": 2, "elliptical": 3}
+  reader = tf.TextLineReader()
+  key, value = reader.read(filename_queue)
+
+  images_tensor, label_tensor = read_example_map(value, type_queue.dequeue())
+
+  #for t in next(iter(types)):
+    #example, label = read_example_map(input_queue.dequeue())
+    #images_tensor = tf.concat(1, images_tensor, example)
+    #label_tensor = tf.concat(1, label_tensor, label)
+
+  return images_tensor, label_tensor
 
 sess = tf.Session()
 with sess.as_default():
-  for t in types:
-    filename_queue = tf.train.string_input_producer(filenames[t])
-    print 'meme'
-
-    reader = tf.WholeFileReader()
-    key, value = reader.read(filename_queue)
-    print 'lmao'
-
-    images[t] = tf.image.decode_jpeg(value, channels=3)
-
-    # Normalize pixels
-    images[t] = tf.image.per_image_whitening(images[t])
-    print 'dank'
-
-    # Add labels
-    #labels = tf.tile(tf.constant([indices[t]]), images[t].)
-
+  images, labels = read_examples()
   coord = tf.train.Coordinator()
   threads = tf.train.start_queue_runners(coord=coord)
 
-  print 'abc'
-
-  for t in types:
-    for i in range(len(filenames[t])):
-      img = images[t].eval()
-      print img.shape
+  print images.eval(), labels.eval()
 
   coord.request_stop()
   coord.join(threads)
