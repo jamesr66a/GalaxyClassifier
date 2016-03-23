@@ -30,50 +30,51 @@ def read_example(value):
 with tf.Graph().as_default():
   # Start populating the filename queue.
 
-  filenames = []
-  for t in types:
-    filenames.append(os.path.join('./images', t, 'scaled', 'example_map'))
-
-
-  filename_queue = tf.train.string_input_producer(filenames)
-
-  print filenames
-
-  reader = tf.TextLineReader()
-  key, value = reader.read(filename_queue)
-
-
-  batch_size = 128
-  min_fraction_of_examples_in_queue = 0.4
-  num_examples_per_epoch = 50000
-  min_queue_examples = int(num_examples_per_epoch *
-                           min_fraction_of_examples_in_queue)
-  images_batch, label_batch =\
-    tf.train.shuffle_batch_join([read_example(value) for _ in range(9)],
-                                 batch_size=batch_size,
-                                 capacity=min_queue_examples + 3*batch_size,
-                                 min_after_dequeue=min_queue_examples)
-
-  logits = cifar10.inference(images_batch)
-  loss = cifar10.loss(logits, label_batch)
-
-  global_step = tf.Variable(0, trainable=False)
-  train_op = cifar10.train(loss, global_step)
-
-  saver = tf.train.Saver(tf.all_variables())
-
-  summary_op = tf.merge_all_summaries() 
-
-  init = tf.initialize_all_variables()
-
-  sess = tf.Session()
-
-
-  summary_writer = tf.train.SummaryWriter('./train',
-                                          graph_def=sess.graph_def)
-
-
   if len(sys.argv) == 1:
+
+    filenames = []
+    for t in types:
+      filenames.append(os.path.join('./images', t, 'scaled', 'example_map'))
+
+
+    filename_queue = tf.train.string_input_producer(filenames)
+
+    print filenames
+
+    reader = tf.TextLineReader()
+    key, value = reader.read(filename_queue)
+
+
+    batch_size = 128
+    min_fraction_of_examples_in_queue = 0.4
+    num_examples_per_epoch = 50000
+    min_queue_examples = int(num_examples_per_epoch *
+                             min_fraction_of_examples_in_queue)
+    images_batch, label_batch =\
+      tf.train.shuffle_batch_join([read_example(value) for _ in range(9)],
+                                   batch_size=batch_size,
+                                   capacity=min_queue_examples + 3*batch_size,
+                                   min_after_dequeue=min_queue_examples)
+
+    logits = cifar10.inference(images_batch)
+    loss = cifar10.loss(logits, label_batch)
+
+    global_step = tf.Variable(0, trainable=False)
+    train_op = cifar10.train(loss, global_step)
+
+    saver = tf.train.Saver(tf.all_variables())
+
+    summary_op = tf.merge_all_summaries() 
+
+    init = tf.initialize_all_variables()
+
+    sess = tf.Session()
+
+
+    summary_writer = tf.train.SummaryWriter('./train',
+                                            graph_def=sess.graph_def)
+
+
     sess.run(init)
 
     threads = tf.train.start_queue_runners(sess=sess)
@@ -107,7 +108,51 @@ with tf.Graph().as_default():
         saver.save(sess, checkpoint_path, global_step=step)
 
   else: # if len(sys.argv) == 1
+    #NB: Here be dragons. I have to learn how to use TF better.
     print 'skipping training'
+    filenames = ["./test_examples/example_map"]
+    for t in types:
+      filenames.append(os.path.join('./images', t, 'scaled', 'example_map'))
+
+
+    filename_queue = tf.train.string_input_producer(filenames)
+
+    print filenames
+
+    reader = tf.TextLineReader()
+    key, value = reader.read(filename_queue)
+
+
+    batch_size = 128
+    min_fraction_of_examples_in_queue = 0.4
+    num_examples_per_epoch = 50000
+    min_queue_examples = int(num_examples_per_epoch *
+                             min_fraction_of_examples_in_queue)
+    images_batch, label_batch =\
+      tf.train.shuffle_batch_join([read_example(value) for _ in range(9)],
+                                   batch_size=batch_size,
+                                   capacity=min_queue_examples + 3*batch_size,
+                                   min_after_dequeue=min_queue_examples)
+
+    logits = cifar10.inference(images_batch)
+    loss = cifar10.loss(logits, label_batch)
+
+    global_step = tf.Variable(0, trainable=False)
+    train_op = cifar10.train(loss, global_step)
+
+    saver = tf.train.Saver(tf.all_variables())
+
+    summary_op = tf.merge_all_summaries() 
+
+    init = tf.initialize_all_variables()
+
+    sess = tf.Session()
+
+
+    summary_writer = tf.train.SummaryWriter('./train',
+                                            graph_def=sess.graph_def)
+
+
     ckpt = tf.train.get_checkpoint_state('./train')
     if ckpt and ckpt.model_checkpoint_path:
       print 'restoring model'
@@ -120,15 +165,15 @@ with tf.Graph().as_default():
 
     print 'running logits'   
     threads = tf.train.start_queue_runners(sess=sess)
-    logits_evaled, images = sess.run([logits, images_batch])
+    logits_evaled, images, labels = sess.run([logits, images_batch, label_batch])
 
-    for x in logits_evaled:
-      val = np.asarray(x)[0:4] 
+    match = []
+
+    for pair in zip(logits_evaled, labels):
+      val = np.asarray(pair[0])[0:4] 
       softmax = np.exp(val) / np.sum(np.exp(val), axis=0)
-      print types[np.argmax(softmax)], softmax
+      print types[np.argmax(softmax)], types[pair[1]]
+      match.append(np.argmax(softmax) == pair[1])
 
-    for n, i in enumerate(images):
-      arr = (np.asarray(i)*10 + 100).astype(int)
-      print i
-      img = Image.fromarray(arr, "RGB")
-      img.save(os.path.join('./results', '%s.jpg' % n))
+    print 'Percent correct: ', float(match.count(True))/len(match)
+    
